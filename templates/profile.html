@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Profile — Spendly{% endblock %}
+
+{% block content %}
+<section class="profile-section">
+  <div class="profile-inner">
+
+    <div class="auth-card profile-header">
+      <div class="profile-avatar">{{ user.initials }}</div>
+      <div class="profile-identity">
+        <h1 class="profile-name">{{ user.name }}</h1>
+        <p class="profile-email">{{ user.email }}</p>
+        <p class="profile-member-since">Member since {{ user.member_since }}</p>
+      </div>
+      <a href="{{ url_for('logout') }}" class="btn-ghost profile-signout">Sign out</a>
+    </div>
+
+    <div class="mock-stats profile-stats">
+      {% for stat in summary_stats %}
+      <div class="mock-stat">
+        <span class="mock-stat-label">{{ stat.label }}</span>
+        <span class="mock-stat-value">{{ stat.value }}</span>
+        <span class="mock-stat-delta {{ stat.delta_class }}">{{ stat.delta }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="feature-card profile-block">
+      <h2 class="profile-block-title">Recent Transactions</h2>
+      <table class="transaction-table">
+        <thead>
+          <tr>
+            <th>Date</th><th>Description</th><th>Category</th><th class="txn-amount-col">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for txn in transactions %}
+          <tr>
+            <td>{{ txn.date }}</td>
+            <td>{{ txn.description }}</td>
+            <td><span class="category-badge category-{{ txn.category|lower }}">{{ txn.category }}</span></td>
+            <td class="txn-amount-col">{{ txn.amount }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mock-progress profile-block">
+      <h2 class="profile-block-title">Category Breakdown</h2>
+      {% for cat in category_breakdown %}
+      <div class="mock-progress-row profile-progress-row">
+        <span class="mock-progress-label">{{ cat.name }}</span>
+        <div class="mock-progress-track">
+          <div class="mock-progress-bar {{ cat.css_class }} {{ cat.width_class }}"></div>
+        </div>
+        <span class="profile-cat-amount">{{ cat.amount }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+  </div>
+</section>
+{% endblock %}
