@@ -485,6 +485,12 @@ a { color: inherit; text-decoration: none; }
     border: 1px solid var(--accent);
 }
 
+.flash-error {
+    background: var(--danger-light);
+    color: var(--danger);
+    border: 1px solid var(--danger);
+}
+
 .form-group { margin-bottom: 1.25rem; }
 
 .form-group label {
