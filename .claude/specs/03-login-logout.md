@@ -34,7 +34,7 @@ No new files.
 No new dependencies. `werkzeug.security.check_password_hash` is already available via the existing werkzeug install.
 
 ## Rules for implementation
-- If `session.get("user_id")` is already set, `GET`/`POST /login` and `GET`/`POST /register` must redirect to `url_for("landing")` instead of rendering the auth form — a logged-in user should not be able to view or resubmit these forms
+- If `session.get("user_id")` is already set, `GET`/`POST /login` and `GET`/`POST /register` must redirect to `url_for("profile")` instead of rendering the auth form — a logged-in user should not be able to view or resubmit these forms
 - No SQLAlchemy or ORMs — use raw sqlite3 via `get_db()`
 - Parameterised queries only — never use f-strings in SQL
 - Passwords verified with `werkzeug.security.check_password_hash`
@@ -44,13 +44,13 @@ No new dependencies. `werkzeug.security.check_password_hash` is already availabl
 - All templates extend `base.html`
 - Use `url_for()` for every internal link — never hardcode paths
 - On failed login show a generic flash error ("Invalid email or password.") — do not reveal which field was wrong
-- After successful login redirect to `url_for("landing")` until a dashboard route exists
+- After successful login redirect to `url_for("profile")` (Step 4's dashboard/profile page)
 - `logout()` must call `session.clear()` then redirect to `url_for("landing")`
 - `get_user_by_email` belongs in `database/db.py`, not inline in the route
 
 ## Definition of done
 - [ ] Visiting `GET /login` renders the login form with email and password fields
-- [ ] Submitting the form with valid credentials (e.g. `demo@spendly.com` / `demo123`) sets `session["user_id"]` and redirects to `/`
+- [ ] Submitting the form with valid credentials (e.g. `demo@spendly.com` / `demo123`) sets `session["user_id"]` and redirects to `/profile`
 - [ ] Submitting with a wrong password shows "Invalid email or password." flash and stays on the login page
 - [ ] Submitting with an unregistered email shows the same generic error flash
 - [ ] Visiting `GET /logout` clears the session and redirects to `/`

@@ -25,7 +25,7 @@ def landing():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if session.get("user_id"):
-        return redirect(url_for("landing"))
+        return redirect(url_for("profile"))
 
     if request.method == "GET":
         return render_template("register.html")
@@ -72,7 +72,7 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("user_id"):
-        return redirect(url_for("landing"))
+        return redirect(url_for("profile"))
 
     if request.method == "GET":
         return render_template("login.html")
@@ -87,13 +87,58 @@ def login():
 
     session["user_id"] = user["id"]
     flash("Logged in successfully!", "success")
-    return redirect(url_for("landing"))
+    return redirect(url_for("profile"))
 
 
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("landing"))
+
+
+@app.route("/profile")
+def profile():
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    user = {
+        "name": "Demo User",
+        "email": "demo@spendly.com",
+        "initials": "DU",
+        "member_since": "January 2025",
+    }
+
+    summary_stats = [
+        {"label": "Total Spent", "value": "₹42,180", "delta": "+8% vs last month", "delta_class": "mock-stat-delta-up"},
+        {"label": "Transactions", "value": "37", "delta": "5 this week", "delta_class": "mock-stat-delta-neutral"},
+        {"label": "Top Category", "value": "Food", "delta": "₹14,320 spent", "delta_class": "mock-stat-delta-neutral"},
+    ]
+
+    transactions = [
+        {"date": "Aug 12, 2026", "description": "Grocery run — BigBasket", "category": "Food", "amount": "₹1,240.00"},
+        {"date": "Aug 10, 2026", "description": "Uber to airport", "category": "Transport", "amount": "₹680.00"},
+        {"date": "Aug 08, 2026", "description": "Electricity bill", "category": "Bills", "amount": "₹2,150.00"},
+        {"date": "Aug 05, 2026", "description": "Pharmacy — vitamins", "category": "Health", "amount": "₹540.00"},
+        {"date": "Aug 02, 2026", "description": "Movie night", "category": "Entertainment", "amount": "₹850.00"},
+    ]
+
+    category_breakdown = [
+        {"name": "Food", "amount": "₹14,320", "percent": 34, "css_class": "category-food", "width_class": "bar-w-30"},
+        {"name": "Bills", "amount": "₹9,650", "percent": 23, "css_class": "category-bills", "width_class": "bar-w-20"},
+        {"name": "Transport", "amount": "₹6,200", "percent": 15, "css_class": "category-transport", "width_class": "bar-w-20"},
+        {"name": "Entertainment", "amount": "₹4,980", "percent": 12, "css_class": "category-entertainment", "width_class": "bar-w-10"},
+        {"name": "Health", "amount": "₹3,510", "percent": 8, "css_class": "category-health", "width_class": "bar-w-10"},
+        {"name": "Shopping", "amount": "₹2,400", "percent": 6, "css_class": "category-shopping", "width_class": "bar-w-10"},
+        {"name": "Other", "amount": "₹1,120", "percent": 2, "css_class": "category-other", "width_class": "bar-w-10"},
+    ]
+
+    return render_template(
+        "profile.html",
+        user=user,
+        summary_stats=summary_stats,
+        transactions=transactions,
+        category_breakdown=category_breakdown,
+    )
 
 
 @app.route("/terms")
@@ -109,11 +154,6 @@ def privacy():
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-@app.route("/profile")
-def profile():
-    return "Profile page — coming in Step 4"
-
 
 @app.route("/expenses/add")
 def add_expense():
