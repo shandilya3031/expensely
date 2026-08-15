@@ -37,74 +37,68 @@ def get_user_by_id(user_id):
 # ------------------------------------------------------------------ #
 # Profile: recent transactions (Subagent 1)                          #
 # ------------------------------------------------------------------ #
-def get_recent_transactions(user_id, limit=5):
+def get_recent_transactions(user_id, limit=5, start_date=None, end_date=None):
     conn = get_db()
-    rows = conn.execute(
-        """
+
+    query = """
         SELECT id, amount, category, date, description
         FROM expenses
         WHERE user_id = ?
-        ORDER BY date DESC, id DESC
-        LIMIT ?
-        """,
-        (user_id, limit),
-    ).fetchall()
+    """
+    params = [user_id]
+
+    if start_date:
+        query += " AND date >= ?"
+        params.append(start_date)
+        limit = None
+    if end_date:
+        query += " AND date <= ?"
+        params.append(end_date)
+        limit = None
+
+    query += " ORDER BY date DESC, id DESC"
+
+    if limit is not None:
+        query += " LIMIT ?"
+        params.append(limit)
+
+    rows = conn.execute(query, params).fetchall()
     conn.close()
     return rows
 
 
 # ------------------------------------------------------------------ #
-# Profile: monthly summary stats (Subagent 2)                        #
+# Profile: summary stats (Subagent 2)                                 #
 # ------------------------------------------------------------------ #
-def get_monthly_summary(user_id):
+def get_summary_stats(user_id, start_date=None, end_date=None):
     conn = get_db()
 
-    now = datetime.now()
-    current_month = now.strftime("%Y-%m")
-    first_of_this_month = now.replace(day=1)
-    last_day_prev_month = first_of_this_month - timedelta(days=1)
-    previous_month = last_day_prev_month.strftime("%Y-%m")
+    total_query = "SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count FROM expenses WHERE user_id = ?"
+    total_params = [user_id]
+    if start_date:
+        total_query += " AND date >= ?"
+        total_params.append(start_date)
+    if end_date:
+        total_query += " AND date <= ?"
+        total_params.append(end_date)
+    row = conn.execute(total_query, total_params).fetchone()
+    total = row["total"]
+    count = row["count"]
 
-    row = conn.execute(
-        """
-        SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count
-        FROM expenses
-        WHERE user_id = ? AND strftime('%Y-%m', date) = ?
-        """,
-        (user_id, current_month),
-    ).fetchone()
-    total_this_month = row["total"]
-
-    total_count_row = conn.execute(
-        "SELECT COUNT(*) AS count FROM expenses WHERE user_id = ?",
-        (user_id,),
-    ).fetchone()
-    total_count = total_count_row["count"]
-
-    top_row = conn.execute(
-        """
-        SELECT category, COALESCE(SUM(amount), 0) AS total
-        FROM expenses
-        WHERE user_id = ? AND strftime('%Y-%m', date) = ?
-        GROUP BY category
-        ORDER BY total DESC, category ASC
-        LIMIT 1
-        """,
-        (user_id, current_month),
-    ).fetchone()
+    top_query = "SELECT category, COALESCE(SUM(amount), 0) AS total FROM expenses WHERE user_id = ?"
+    top_params = [user_id]
+    if start_date:
+        top_query += " AND date >= ?"
+        top_params.append(start_date)
+    if end_date:
+        top_query += " AND date <= ?"
+        top_params.append(end_date)
+    top_query += " GROUP BY category ORDER BY total DESC, category ASC LIMIT 1"
+    top_row = conn.execute(top_query, top_params).fetchone()
     top_category_name = top_row["category"] if top_row else None
     top_category_total = top_row["total"] if top_row else 0
 
-    prev_row = conn.execute(
-        """
-        SELECT COALESCE(SUM(amount), 0) AS total
-        FROM expenses
-        WHERE user_id = ? AND strftime('%Y-%m', date) = ?
-        """,
-        (user_id, previous_month),
-    ).fetchone()
-    total_prev_month = prev_row["total"]
-
+    now = datetime.now()
     seven_days_ago = (now - timedelta(days=7)).strftime("%Y-%m-%d")
     today_str = now.strftime("%Y-%m-%d")
     week_row = conn.execute(
@@ -119,39 +113,32 @@ def get_monthly_summary(user_id):
 
     conn.close()
 
-    if total_prev_month > 0:
-        percent_change = ((total_this_month - total_prev_month) / total_prev_month) * 100
-    else:
-        percent_change = None  # no prior-month data to compare against
-
     return {
-        "total_this_month": total_this_month,
-        "total_count": total_count,
+        "total": total,
+        "count": count,
         "top_category_name": top_category_name,
         "top_category_total": top_category_total,
         "count_last_7_days": count_last_7_days,
-        "percent_change": percent_change,
     }
 
 
 # ------------------------------------------------------------------ #
 # Profile: category breakdown (Subagent 3)                           #
 # ------------------------------------------------------------------ #
-def get_category_breakdown(user_id):
+def get_category_breakdown(user_id, start_date=None, end_date=None):
     conn = get_db()
-    now = datetime.now()
-    current_month = now.strftime("%Y-%m")
 
-    rows = conn.execute(
-        """
-        SELECT category, COALESCE(SUM(amount), 0) AS total
-        FROM expenses
-        WHERE user_id = ? AND strftime('%Y-%m', date) = ?
-        GROUP BY category
-        ORDER BY total DESC, category ASC
-        """,
-        (user_id, current_month),
-    ).fetchall()
+    query = "SELECT category, COALESCE(SUM(amount), 0) AS total FROM expenses WHERE user_id = ?"
+    params = [user_id]
+    if start_date:
+        query += " AND date >= ?"
+        params.append(start_date)
+    if end_date:
+        query += " AND date <= ?"
+        params.append(end_date)
+    query += " GROUP BY category ORDER BY total DESC, category ASC"
+
+    rows = conn.execute(query, params).fetchall()
     conn.close()
     return rows
 

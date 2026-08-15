@@ -11,7 +11,7 @@ from database.db import (
     get_user_by_email,
     get_user_by_id,
     get_recent_transactions,
-    get_monthly_summary,
+    get_summary_stats,
     get_category_breakdown,
 )
 
@@ -135,9 +135,28 @@ def profile():
         "member_since": member_since,
     }
 
-    summary_stats = _build_summary_stats(user_id)
-    transactions = _build_transactions(user_id)
-    category_breakdown = _build_category_breakdown(user_id)
+    raw_start = request.args.get("start_date", "").strip()
+    raw_end = request.args.get("end_date", "").strip()
+
+    filter_error = None
+    if raw_start and raw_end and raw_start > raw_end:
+        filter_error = "Start date must be before end date."
+        start_date = ""
+        end_date = ""
+    else:
+        start_date = raw_start
+        end_date = raw_end
+
+    date_filter = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "error": filter_error,
+        "is_active": bool(start_date or end_date),
+    }
+
+    summary_stats = _build_summary_stats(user_id, start_date=start_date, end_date=end_date)
+    transactions = _build_transactions(user_id, start_date=start_date, end_date=end_date)
+    category_breakdown = _build_category_breakdown(user_id, start_date=start_date, end_date=end_date)
 
     return render_template(
         "profile.html",
@@ -145,6 +164,7 @@ def profile():
         summary_stats=summary_stats,
         transactions=transactions,
         category_breakdown=category_breakdown,
+        date_filter=date_filter,
     )
 
 
@@ -181,8 +201,13 @@ def delete_expense(id):
 # Profile view helpers                                                #
 # ------------------------------------------------------------------ #
 
-def _build_transactions(user_id):
-    rows = get_recent_transactions(user_id, limit=5)
+def _build_transactions(user_id, start_date="", end_date=""):
+    rows = get_recent_transactions(
+        user_id,
+        limit=5,
+        start_date=start_date or None,
+        end_date=end_date or None,
+    )
     transactions = []
     for row in rows:
         date_obj = datetime.strptime(row["date"], "%Y-%m-%d")
@@ -195,44 +220,41 @@ def _build_transactions(user_id):
     return transactions
 
 
-def _build_summary_stats(user_id):
-    summary = get_monthly_summary(user_id)
+def _build_summary_stats(user_id, start_date="", end_date=""):
+    stats = get_summary_stats(user_id, start_date=start_date or None, end_date=end_date or None)
 
-    total_value = f"₹{summary['total_this_month']:,.0f}"
-    if summary["percent_change"] is None:
-        total_delta = "No data for last month"
-        total_delta_class = "mock-stat-delta-neutral"
+    count = stats["count"]
+    total_value = f"₹{stats['total']:,.0f}"
+    if count:
+        total_delta = f"Across {count} transaction{'s' if count != 1 else ''}"
     else:
-        pct = round(summary["percent_change"])
-        sign = "+" if pct >= 0 else ""
-        total_delta = f"{sign}{pct}% vs last month"
-        total_delta_class = "mock-stat-delta-up" if pct >= 0 else "mock-stat-delta-down"
+        total_delta = "No transactions in this range" if (start_date or end_date) else "No transactions yet"
 
-    transactions_value = str(summary["total_count"])
-    transactions_delta = f"{summary['count_last_7_days']} this week"
+    transactions_value = str(count)
+    transactions_delta = f"{stats['count_last_7_days']} this week"
 
-    if summary["top_category_name"]:
-        top_category_value = summary["top_category_name"]
-        top_category_delta = f"₹{summary['top_category_total']:,.0f} spent"
+    if stats["top_category_name"]:
+        top_category_value = stats["top_category_name"]
+        top_category_delta = f"₹{stats['top_category_total']:,.0f} spent"
     else:
         top_category_value = "—"
         top_category_delta = "No spending yet"
 
     return [
-        {"label": "Total Spent", "value": total_value, "delta": total_delta, "delta_class": total_delta_class},
+        {"label": "Total Spent", "value": total_value, "delta": total_delta, "delta_class": "mock-stat-delta-neutral"},
         {"label": "Transactions", "value": transactions_value, "delta": transactions_delta, "delta_class": "mock-stat-delta-neutral"},
         {"label": "Top Category", "value": top_category_value, "delta": top_category_delta, "delta_class": "mock-stat-delta-neutral"},
     ]
 
 
-def _build_category_breakdown(user_id):
-    rows = get_category_breakdown(user_id)
-    month_total = sum(row["total"] for row in rows)
+def _build_category_breakdown(user_id, start_date="", end_date=""):
+    rows = get_category_breakdown(user_id, start_date=start_date or None, end_date=end_date or None)
+    total = sum(row["total"] for row in rows)
 
     breakdown = []
     for row in rows:
         amount = row["total"]
-        percent = (amount / month_total * 100) if month_total > 0 else 0
+        percent = (amount / total * 100) if total > 0 else 0
 
         rounded_percent = int(round(percent / 10.0) * 10)
         if amount > 0:

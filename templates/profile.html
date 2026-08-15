@@ -28,6 +28,26 @@
 
     <div class="feature-card profile-block">
       <h2 class="profile-block-title">Recent Transactions</h2>
+
+      {% if date_filter.error %}
+      <div class="auth-error">{{ date_filter.error }}</div>
+      {% endif %}
+
+      <form method="GET" action="{{ url_for('profile') }}" class="date-filter-form">
+        <div class="form-group date-filter-field">
+          <label for="start_date">From</label>
+          <input type="date" id="start_date" name="start_date" class="form-input" value="{{ date_filter.start_date }}">
+        </div>
+        <div class="form-group date-filter-field">
+          <label for="end_date">To</label>
+          <input type="date" id="end_date" name="end_date" class="form-input" value="{{ date_filter.end_date }}">
+        </div>
+        <button type="submit" class="btn-primary date-filter-submit">Filter</button>
+        {% if date_filter.is_active %}
+        <a href="{{ url_for('profile') }}" class="date-filter-clear">Clear filter</a>
+        {% endif %}
+      </form>
+
       <table class="transaction-table">
         <thead>
           <tr>
@@ -62,7 +82,7 @@
         <span class="profile-cat-amount">{{ cat.amount }}</span>
       </div>
       {% else %}
-      <p class="profile-empty-state">No spending recorded this month yet.</p>
+      <p class="profile-empty-state">No spending recorded yet.</p>
       {% endfor %}
     </div>
 
