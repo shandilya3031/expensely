@@ -25,6 +25,137 @@ def get_user_by_email(email):
     return user
 
 
+def get_user_by_id(user_id):
+    conn = get_db()
+    user = conn.execute(
+        "SELECT * FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    conn.close()
+    return user
+
+
+# ------------------------------------------------------------------ #
+# Profile: recent transactions (Subagent 1)                          #
+# ------------------------------------------------------------------ #
+def get_recent_transactions(user_id, limit=5):
+    conn = get_db()
+    rows = conn.execute(
+        """
+        SELECT id, amount, category, date, description
+        FROM expenses
+        WHERE user_id = ?
+        ORDER BY date DESC, id DESC
+        LIMIT ?
+        """,
+        (user_id, limit),
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+# ------------------------------------------------------------------ #
+# Profile: monthly summary stats (Subagent 2)                        #
+# ------------------------------------------------------------------ #
+def get_monthly_summary(user_id):
+    conn = get_db()
+
+    now = datetime.now()
+    current_month = now.strftime("%Y-%m")
+    first_of_this_month = now.replace(day=1)
+    last_day_prev_month = first_of_this_month - timedelta(days=1)
+    previous_month = last_day_prev_month.strftime("%Y-%m")
+
+    row = conn.execute(
+        """
+        SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count
+        FROM expenses
+        WHERE user_id = ? AND strftime('%Y-%m', date) = ?
+        """,
+        (user_id, current_month),
+    ).fetchone()
+    total_this_month = row["total"]
+
+    total_count_row = conn.execute(
+        "SELECT COUNT(*) AS count FROM expenses WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+    total_count = total_count_row["count"]
+
+    top_row = conn.execute(
+        """
+        SELECT category, COALESCE(SUM(amount), 0) AS total
+        FROM expenses
+        WHERE user_id = ? AND strftime('%Y-%m', date) = ?
+        GROUP BY category
+        ORDER BY total DESC, category ASC
+        LIMIT 1
+        """,
+        (user_id, current_month),
+    ).fetchone()
+    top_category_name = top_row["category"] if top_row else None
+    top_category_total = top_row["total"] if top_row else 0
+
+    prev_row = conn.execute(
+        """
+        SELECT COALESCE(SUM(amount), 0) AS total
+        FROM expenses
+        WHERE user_id = ? AND strftime('%Y-%m', date) = ?
+        """,
+        (user_id, previous_month),
+    ).fetchone()
+    total_prev_month = prev_row["total"]
+
+    seven_days_ago = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+    today_str = now.strftime("%Y-%m-%d")
+    week_row = conn.execute(
+        """
+        SELECT COUNT(*) AS count
+        FROM expenses
+        WHERE user_id = ? AND date >= ? AND date <= ?
+        """,
+        (user_id, seven_days_ago, today_str),
+    ).fetchone()
+    count_last_7_days = week_row["count"]
+
+    conn.close()
+
+    if total_prev_month > 0:
+        percent_change = ((total_this_month - total_prev_month) / total_prev_month) * 100
+    else:
+        percent_change = None  # no prior-month data to compare against
+
+    return {
+        "total_this_month": total_this_month,
+        "total_count": total_count,
+        "top_category_name": top_category_name,
+        "top_category_total": top_category_total,
+        "count_last_7_days": count_last_7_days,
+        "percent_change": percent_change,
+    }
+
+
+# ------------------------------------------------------------------ #
+# Profile: category breakdown (Subagent 3)                           #
+# ------------------------------------------------------------------ #
+def get_category_breakdown(user_id):
+    conn = get_db()
+    now = datetime.now()
+    current_month = now.strftime("%Y-%m")
+
+    rows = conn.execute(
+        """
+        SELECT category, COALESCE(SUM(amount), 0) AS total
+        FROM expenses
+        WHERE user_id = ? AND strftime('%Y-%m', date) = ?
+        GROUP BY category
+        ORDER BY total DESC, category ASC
+        """,
+        (user_id, current_month),
+    ).fetchall()
+    conn.close()
+    return rows
+
+
 def init_db():
     conn = get_db()
     conn.execute(

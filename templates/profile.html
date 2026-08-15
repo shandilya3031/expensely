@@ -42,6 +42,10 @@
             <td><span class="category-badge category-{{ txn.category|lower }}">{{ txn.category }}</span></td>
             <td class="txn-amount-col">{{ txn.amount }}</td>
           </tr>
+          {% else %}
+          <tr>
+            <td colspan="4" class="profile-empty-state">No transactions yet — add your first expense to see it here.</td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
@@ -57,6 +61,8 @@
         </div>
         <span class="profile-cat-amount">{{ cat.amount }}</span>
       </div>
+      {% else %}
+      <p class="profile-empty-state">No spending recorded this month yet.</p>
       {% endfor %}
     </div>
 
