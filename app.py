@@ -1,9 +1,19 @@
 import sqlite3
+from datetime import datetime, timedelta
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from database.db import init_db, seed_db, get_db, get_user_by_email
+from database.db import (
+    init_db,
+    seed_db,
+    get_db,
+    get_user_by_email,
+    get_user_by_id,
+    get_recent_transactions,
+    get_monthly_summary,
+    get_category_breakdown,
+)
 
 app = Flask(__name__)
 app.secret_key = "dev-secret-key-change-in-production"
@@ -11,6 +21,12 @@ app.secret_key = "dev-secret-key-change-in-production"
 with app.app_context():
     init_db()
     seed_db()
+
+
+@app.context_processor
+def inject_current_user():
+    user_id = session.get("user_id")
+    return {"current_user": get_user_by_id(user_id) if user_id else None}
 
 
 # ------------------------------------------------------------------ #
@@ -101,36 +117,27 @@ def profile():
     if not session.get("user_id"):
         return redirect(url_for("login"))
 
+    user_id = session["user_id"]
+    db_user = get_user_by_id(user_id)
+
+    name = db_user["name"] if db_user else ""
+    initials = "".join(w[0] for w in name.split()[:2]).upper() if name else ""
+
+    member_since = ""
+    if db_user and db_user["created_at"]:
+        created_dt = datetime.strptime(db_user["created_at"][:19], "%Y-%m-%d %H:%M:%S")
+        member_since = created_dt.strftime("%B %Y")
+
     user = {
-        "name": "Demo User",
-        "email": "demo@spendly.com",
-        "initials": "DU",
-        "member_since": "January 2025",
+        "name": name,
+        "email": db_user["email"] if db_user else "",
+        "initials": initials,
+        "member_since": member_since,
     }
 
-    summary_stats = [
-        {"label": "Total Spent", "value": "₹42,180", "delta": "+8% vs last month", "delta_class": "mock-stat-delta-up"},
-        {"label": "Transactions", "value": "37", "delta": "5 this week", "delta_class": "mock-stat-delta-neutral"},
-        {"label": "Top Category", "value": "Food", "delta": "₹14,320 spent", "delta_class": "mock-stat-delta-neutral"},
-    ]
-
-    transactions = [
-        {"date": "Aug 12, 2026", "description": "Grocery run — BigBasket", "category": "Food", "amount": "₹1,240.00"},
-        {"date": "Aug 10, 2026", "description": "Uber to airport", "category": "Transport", "amount": "₹680.00"},
-        {"date": "Aug 08, 2026", "description": "Electricity bill", "category": "Bills", "amount": "₹2,150.00"},
-        {"date": "Aug 05, 2026", "description": "Pharmacy — vitamins", "category": "Health", "amount": "₹540.00"},
-        {"date": "Aug 02, 2026", "description": "Movie night", "category": "Entertainment", "amount": "₹850.00"},
-    ]
-
-    category_breakdown = [
-        {"name": "Food", "amount": "₹14,320", "percent": 34, "css_class": "category-food", "width_class": "bar-w-30"},
-        {"name": "Bills", "amount": "₹9,650", "percent": 23, "css_class": "category-bills", "width_class": "bar-w-20"},
-        {"name": "Transport", "amount": "₹6,200", "percent": 15, "css_class": "category-transport", "width_class": "bar-w-20"},
-        {"name": "Entertainment", "amount": "₹4,980", "percent": 12, "css_class": "category-entertainment", "width_class": "bar-w-10"},
-        {"name": "Health", "amount": "₹3,510", "percent": 8, "css_class": "category-health", "width_class": "bar-w-10"},
-        {"name": "Shopping", "amount": "₹2,400", "percent": 6, "css_class": "category-shopping", "width_class": "bar-w-10"},
-        {"name": "Other", "amount": "₹1,120", "percent": 2, "css_class": "category-other", "width_class": "bar-w-10"},
-    ]
+    summary_stats = _build_summary_stats(user_id)
+    transactions = _build_transactions(user_id)
+    category_breakdown = _build_category_breakdown(user_id)
 
     return render_template(
         "profile.html",
@@ -168,6 +175,79 @@ def edit_expense(id):
 @app.route("/expenses/<int:id>/delete")
 def delete_expense(id):
     return "Delete expense — coming in Step 9"
+
+
+# ------------------------------------------------------------------ #
+# Profile view helpers                                                #
+# ------------------------------------------------------------------ #
+
+def _build_transactions(user_id):
+    rows = get_recent_transactions(user_id, limit=5)
+    transactions = []
+    for row in rows:
+        date_obj = datetime.strptime(row["date"], "%Y-%m-%d")
+        transactions.append({
+            "date": date_obj.strftime("%b %d, %Y"),
+            "description": row["description"] or "",
+            "category": row["category"],
+            "amount": f"₹{row['amount']:,.2f}",
+        })
+    return transactions
+
+
+def _build_summary_stats(user_id):
+    summary = get_monthly_summary(user_id)
+
+    total_value = f"₹{summary['total_this_month']:,.0f}"
+    if summary["percent_change"] is None:
+        total_delta = "No data for last month"
+        total_delta_class = "mock-stat-delta-neutral"
+    else:
+        pct = round(summary["percent_change"])
+        sign = "+" if pct >= 0 else ""
+        total_delta = f"{sign}{pct}% vs last month"
+        total_delta_class = "mock-stat-delta-up" if pct >= 0 else "mock-stat-delta-down"
+
+    transactions_value = str(summary["total_count"])
+    transactions_delta = f"{summary['count_last_7_days']} this week"
+
+    if summary["top_category_name"]:
+        top_category_value = summary["top_category_name"]
+        top_category_delta = f"₹{summary['top_category_total']:,.0f} spent"
+    else:
+        top_category_value = "—"
+        top_category_delta = "No spending yet"
+
+    return [
+        {"label": "Total Spent", "value": total_value, "delta": total_delta, "delta_class": total_delta_class},
+        {"label": "Transactions", "value": transactions_value, "delta": transactions_delta, "delta_class": "mock-stat-delta-neutral"},
+        {"label": "Top Category", "value": top_category_value, "delta": top_category_delta, "delta_class": "mock-stat-delta-neutral"},
+    ]
+
+
+def _build_category_breakdown(user_id):
+    rows = get_category_breakdown(user_id)
+    month_total = sum(row["total"] for row in rows)
+
+    breakdown = []
+    for row in rows:
+        amount = row["total"]
+        percent = (amount / month_total * 100) if month_total > 0 else 0
+
+        rounded_percent = int(round(percent / 10.0) * 10)
+        if amount > 0:
+            rounded_percent = max(rounded_percent, 10)
+        rounded_percent = min(rounded_percent, 100)
+
+        breakdown.append({
+            "name": row["category"],
+            "amount": f"₹{amount:,.0f}",
+            "percent": round(percent),
+            "css_class": f"category-{row['category'].lower()}",
+            "width_class": f"bar-w-{rounded_percent}",
+        })
+
+    return breakdown
 
 
 if __name__ == "__main__":

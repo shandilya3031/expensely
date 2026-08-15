@@ -111,6 +111,8 @@ a { color: inherit; text-decoration: none; }
 .nav-links a { color: var(--ink-muted); transition: color 0.2s; }
 .nav-links a:hover { color: var(--ink); }
 
+.nav-user-name { color: var(--ink); font-weight: 600; }
+
 .nav-cta {
     background: var(--ink) !important;
     color: var(--paper) !important;
@@ -765,6 +767,7 @@ a { color: inherit; text-decoration: none; }
 
 .profile-progress-row { grid-template-columns: 110px 1fr 90px; }
 .profile-cat-amount { font-size: 0.85rem; font-weight: 600; color: var(--ink); text-align: right; }
+.profile-empty-state { color: var(--ink-faint); font-size: 0.85rem; padding: 1rem 0; text-align: center; }
 
 /* ------------------------------------------------------------------ */
 /* Responsive                                                          */
