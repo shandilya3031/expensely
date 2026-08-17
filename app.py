@@ -1,3 +1,4 @@
+import math
 import sqlite3
 from datetime import datetime, timedelta
 
@@ -13,6 +14,8 @@ from database.db import (
     get_recent_transactions,
     get_summary_stats,
     get_category_breakdown,
+    create_expense,
+    CATEGORIES,
 )
 
 app = Flask(__name__)
@@ -182,9 +185,68 @@ def privacy():
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
 
-@app.route("/expenses/add")
+@app.route("/expenses/add", methods=["GET", "POST"])
 def add_expense():
-    return "Add expense — coming in Step 7"
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    if request.method == "GET":
+        today = datetime.now().strftime("%Y-%m-%d")
+        return render_template("add_expense.html", categories=CATEGORIES, date=today)
+
+    user_id = session["user_id"]
+    amount_raw = request.form.get("amount", "").strip()
+    category = request.form.get("category", "").strip()
+    date_raw = request.form.get("date", "").strip()
+    description = request.form.get("description", "").strip()
+
+    amount = None
+    error = None
+
+    if not amount_raw:
+        error = "Amount is required."
+    else:
+        try:
+            amount = float(amount_raw)
+        except ValueError:
+            error = "Amount must be a valid number."
+        else:
+            if not math.isfinite(amount) or amount <= 0:
+                error = "Amount must be a positive number."
+
+    if not error and category not in CATEGORIES:
+        error = "Please select a valid category."
+
+    if not error:
+        if not date_raw:
+            error = "Date is required."
+        else:
+            try:
+                datetime.strptime(date_raw, "%Y-%m-%d")
+            except ValueError:
+                error = "Please enter a valid date."
+
+    if error:
+        return render_template(
+            "add_expense.html",
+            error=error,
+            categories=CATEGORIES,
+            amount=amount_raw,
+            category=category,
+            date=date_raw,
+            description=description,
+        )
+
+    create_expense(
+        user_id=user_id,
+        amount=round(amount, 2),
+        category=category,
+        date=date_raw,
+        description=description or None,
+    )
+
+    flash("Expense added successfully!", "success")
+    return redirect(url_for("profile"))
 
 
 @app.route("/expenses/<int:id>/edit")
