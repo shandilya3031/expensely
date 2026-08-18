@@ -2,7 +2,7 @@ import math
 import sqlite3
 from datetime import datetime, timedelta
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from database.db import (
@@ -15,6 +15,8 @@ from database.db import (
     get_summary_stats,
     get_category_breakdown,
     create_expense,
+    get_expense_by_id,
+    update_expense,
     CATEGORIES,
 )
 
@@ -249,9 +251,81 @@ def add_expense():
     return redirect(url_for("profile"))
 
 
-@app.route("/expenses/<int:id>/edit")
-def edit_expense(id):
-    return "Edit expense — coming in Step 8"
+@app.route("/expenses/<int:expense_id>/edit", methods=["GET", "POST"])
+def edit_expense(expense_id):
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    user_id = session["user_id"]
+    expense = get_expense_by_id(expense_id, user_id)
+    if expense is None:
+        abort(404)
+
+    if request.method == "GET":
+        return render_template(
+            "edit_expense.html",
+            expense_id=expense_id,
+            categories=CATEGORIES,
+            amount=expense["amount"],
+            category=expense["category"],
+            date=expense["date"],
+            description=expense["description"] or "",
+        )
+
+    amount_raw = request.form.get("amount", "").strip()
+    category = request.form.get("category", "").strip()
+    date_raw = request.form.get("date", "").strip()
+    description = request.form.get("description", "").strip()
+
+    amount = None
+    error = None
+
+    if not amount_raw:
+        error = "Amount is required."
+    else:
+        try:
+            amount = float(amount_raw)
+        except ValueError:
+            error = "Amount must be a valid number."
+        else:
+            if not math.isfinite(amount) or amount <= 0:
+                error = "Amount must be a positive number."
+
+    if not error and category not in CATEGORIES:
+        error = "Please select a valid category."
+
+    if not error:
+        if not date_raw:
+            error = "Date is required."
+        else:
+            try:
+                datetime.strptime(date_raw, "%Y-%m-%d")
+            except ValueError:
+                error = "Please enter a valid date."
+
+    if error:
+        return render_template(
+            "edit_expense.html",
+            error=error,
+            expense_id=expense_id,
+            categories=CATEGORIES,
+            amount=amount_raw,
+            category=category,
+            date=date_raw,
+            description=description,
+        )
+
+    update_expense(
+        expense_id=expense_id,
+        user_id=user_id,
+        amount=round(amount, 2),
+        category=category,
+        date=date_raw,
+        description=description or None,
+    )
+
+    flash("Expense updated successfully!", "success")
+    return redirect(url_for("profile"))
 
 
 @app.route("/expenses/<int:id>/delete")
@@ -274,6 +348,7 @@ def _build_transactions(user_id, start_date="", end_date=""):
     for row in rows:
         date_obj = datetime.strptime(row["date"], "%Y-%m-%d")
         transactions.append({
+            "id": row["id"],
             "date": date_obj.strftime("%b %d, %Y"),
             "description": row["description"] or "",
             "category": row["category"],
