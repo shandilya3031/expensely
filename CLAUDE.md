@@ -99,7 +99,7 @@ pytest -s
 | `GET /profile` | Stub — Step 4 |
 | `GET /expenses/add` | Implemented — renders `add_expense.html`; `POST` validates and creates an expense |
 | `GET /expenses/<id>/edit` | Implemented — renders `edit_expense.html`; `POST` validates and updates the expense (ownership-checked, 404 if not found/owned) |
-| `GET /expenses/<id>/delete` | Stub — Step 9 |
+| `GET /expenses/<id>/delete` | Implemented — renders `delete_expense.html`; `POST` deletes the expense (ownership-checked, 404 if not found/owned) |
 
 **Do not implement a stub route unless the active task explicitly targets that step.**
 

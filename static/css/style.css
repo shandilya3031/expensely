@@ -16,6 +16,7 @@
     --accent-2-light: #fdf3e3;
     --danger: #c0392b;
     --danger-light: #fdecea;
+    --danger-dark: #a12e20;
     --border: #e4e1da;
     --border-soft: #eeebe4;
 
@@ -545,6 +546,52 @@ a { color: inherit; text-decoration: none; }
 
 .btn-submit:hover { background: var(--accent); }
 
+.btn-danger {
+    width: 100%;
+    padding: 0.7rem;
+    background: var(--danger);
+    color: var(--paper);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 0.5rem;
+}
+
+.btn-danger:hover { background: var(--danger-dark); }
+
+.delete-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-soft);
+}
+
+.delete-summary-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.delete-summary-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--ink-muted);
+}
+
+.delete-summary-value {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--ink);
+    text-align: right;
+}
+
 .auth-switch {
     text-align: center;
     font-size: 0.875rem;
@@ -787,8 +834,18 @@ a { color: inherit; text-decoration: none; }
 .txn-action-col { text-align: right; white-space: nowrap; }
 .transaction-table th.txn-amount-col,
 .transaction-table th.txn-action-col { text-align: right; }
-.txn-edit-link { color: var(--accent); font-size: 0.85rem; font-weight: 600; text-decoration: none; }
-.txn-edit-link:hover { text-decoration: underline; }
+.txn-edit-link,
+.txn-delete-link {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.txn-edit-link { color: var(--accent); }
+.txn-delete-link { color: var(--danger); margin-left: 0.75rem; }
+
+.txn-edit-link:hover,
+.txn-delete-link:hover { text-decoration: underline; }
 
 .profile-progress-row { grid-template-columns: 110px 1fr 90px; }
 .profile-cat-amount { font-size: 0.85rem; font-weight: 600; color: var(--ink); text-align: right; }
