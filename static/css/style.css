@@ -784,6 +784,11 @@ a { color: inherit; text-decoration: none; }
 }
 .transaction-table tr:last-child td { border-bottom: none; }
 .txn-amount-col { text-align: right; font-weight: 600; color: var(--ink); }
+.txn-action-col { text-align: right; white-space: nowrap; }
+.transaction-table th.txn-amount-col,
+.transaction-table th.txn-action-col { text-align: right; }
+.txn-edit-link { color: var(--accent); font-size: 0.85rem; font-weight: 600; text-decoration: none; }
+.txn-edit-link:hover { text-decoration: underline; }
 
 .profile-progress-row { grid-template-columns: 110px 1fr 90px; }
 .profile-cat-amount { font-size: 0.85rem; font-weight: 600; color: var(--ink); text-align: right; }
